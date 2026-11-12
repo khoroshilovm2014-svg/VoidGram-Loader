@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 type Page = "device" | "apple" | "tools" | "settings";
+type ReleaseInfo = { version: string; title: string; pageUrl: string; publishedAt: string; ipaName: string; ipaSize: number; sha256: string | null; requiresSigning: boolean };
+type DownloadedIpa = { version: string; path: string; size: number; sha256: string; requiresSigning: boolean };
 
 export default function App() {
   const [page, setPage] = useState<Page>("device");
@@ -12,6 +14,9 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("Готово к работе");
   const [appleEmail, setAppleEmail] = useState("");
+  const [latestRelease, setLatestRelease] = useState<ReleaseInfo | null>(null);
+  const [downloadedVersion, setDownloadedVersion] = useState("");
+  const [requiresSigning, setRequiresSigning] = useState(false);
 
   async function detect() {
     setBusy(true);
@@ -38,14 +43,46 @@ export default function App() {
   async function chooseIpa() {
     try {
       const selected = await open({ multiple: false, filters: [{ name: "IPA", extensions: ["ipa"] }] });
-      if (typeof selected === "string") setIpa(selected);
+      if (typeof selected === "string") { setIpa(selected); setRequiresSigning(false); setDownloadedVersion("Выбранный IPA"); }
     } catch (error) {
       setNotice(String(error));
     }
   }
 
+  async function checkLatestRelease() {
+    try {
+      const release = await invoke<ReleaseInfo>("latest_voidgram_release");
+      setLatestRelease(release);
+      setNotice(`Найдена версия VoidGram ${release.version}`);
+    } catch (error) {
+      setNotice(`Не удалось проверить обновление: ${String(error)}`);
+    }
+  }
+
+  async function downloadLatestIpa() {
+    setBusy(true);
+    setNotice("Загружаем последнюю версию VoidGram…");
+    try {
+      const result = await invoke<DownloadedIpa>("download_latest_voidgram_ipa");
+      setIpa(result.path);
+      setDownloadedVersion(result.version);
+      setRequiresSigning(result.requiresSigning);
+      setNotice(result.requiresSigning
+        ? `VoidGram ${result.version} загружен и проверен. IPA неподписан — перед установкой нужна подпись.`
+        : `VoidGram ${result.version} загружен и проверен по SHA-256.`);
+    } catch (error) {
+      setNotice(String(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function installIpa() {
     if (!ipa) return;
+    if (requiresSigning) {
+      setNotice("Этот IPA неподписан. Сначала нужно реализовать безопасную подпись Apple.");
+      return;
+    }
     setBusy(true);
     setNotice("Установка IPA…");
     try {
@@ -57,6 +94,8 @@ export default function App() {
       setBusy(false);
     }
   }
+
+  useEffect(() => { void checkLatestRelease(); }, []);
 
   const nav = [
     { id: "device" as const, label: "Устройство", icon: "▣" },
@@ -109,9 +148,13 @@ export default function App() {
             <button className="button button-secondary" onClick={() => setPage("apple")}>{appleEmail ? "Обновить Apple ID" : "Войти в Apple ID"}</button>
           </section>
           <section className="install-card">
-            <div className="install-copy"><div className="install-icon">V</div><div><div className="install-title">Установка VoidGram</div><p>Неофициальный мессенджер VoidGram от команды разработчиков VoidDev</p></div></div>
-            <button className="button button-light" onClick={() => setNotice("Установочный пакет VoidGram ещё не подключён.")}>Установить</button>
+            <div className="install-copy"><div className="install-icon">V</div><div><div className="install-title">Установка VoidGram</div><p>Неофициальный мессенджер VoidGram от команды разработчиков VoidDev</p><p className="release-meta">{latestRelease ? `Последняя версия: ${latestRelease.version} · ${(latestRelease.ipaSize / 1024 / 1024).toFixed(1)} МБ` : "Проверяем последнюю версию…"}</p></div></div>
+            <div className="install-actions">
+              <button className="button button-secondary" onClick={checkLatestRelease} disabled={busy}>Проверить</button>
+              <button className="button button-light" onClick={downloadLatestIpa} disabled={busy || !latestRelease}>{busy ? "Подождите…" : "Скачать актуальную IPA"}</button>
+            </div>
           </section>
+          {downloadedVersion && <section className="card release-result"><div><strong>VoidGram {downloadedVersion}</strong><p>{requiresSigning ? "Файл скачан и проверен. Релиз разработчика опубликован как неподписанный IPA; установка на iPhone пока заблокирована до реализации подписи." : "Файл подготовлен к установке."}</p></div><button className="button button-primary" onClick={installIpa} disabled={busy || requiresSigning || !ipa}>Установить</button></section>}
         </div>}
 
         {page === "apple" && <div className="page-content narrow">
