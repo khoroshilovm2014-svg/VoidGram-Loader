@@ -1,33 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+  font-family: Manrope, "Segoe UI", Arial, sans-serif;
+  color: #f5f5f5;
+  background: #080808;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --muted: #858585;
+  --line: #292929;
+  --card: #111111;
+  --white: #f4f4f4;
+}
+
 * { box-sizing: border-box; }
-body {
-  margin: 0;
-  background: #0d1118;
-  color: #edf2fa;
-  font: 15px Segoe UI, Arial, sans-serif;
+html { min-width: 320px; min-height: 100%; background: #080808; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: #080808; }
+button { font: inherit; }
+.app-shell { width: min(100% - 64px, 940px); margin: 0 auto; padding: 27px 0 22px; }
+
+.topbar { height: 48px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 20px; }
+.brand { display: flex; align-items: center; gap: 11px; color: var(--white); font-size: 13px; font-weight: 800; letter-spacing: .19em; }
+.brand-mark { width: 30px; height: 30px; display: block; }
+.topbar-meta { display: flex; align-items: center; gap: 10px; color: #a0a0a0; font-size: 10px; font-weight: 700; letter-spacing: .16em; }
+.status-dot { width: 6px; height: 6px; display: inline-block; border-radius: 50%; background: #d9d9d9; }
+.meta-divider { height: 13px; width: 1px; background: #3a3a3a; margin: 0 3px; }
+
+.intro { padding: 66px 0 42px; }
+.eyebrow { margin: 0 0 12px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .19em; }
+h1 { margin: 0; color: #f7f7f7; font-size: clamp(38px, 6.5vw, 66px); line-height: 1.06; letter-spacing: -.065em; font-weight: 700; }
+h1 span { color: #777; }
+.intro-copy { max-width: 430px; margin: 20px 0 0; color: #929292; font-size: 14px; line-height: 1.8; }
+
+.content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+.panel { min-width: 0; padding: 23px; border: 1px solid var(--line); border-radius: 3px; background: var(--card); }
+.device-panel, .ipa-panel { min-height: 222px; }
+.panel-heading { display: flex; align-items: flex-start; gap: 13px; }
+.step { color: #666; font-size: 11px; font-weight: 700; letter-spacing: .08em; padding-top: 2px; }
+.panel-heading .eyebrow { margin-bottom: 5px; font-size: 9px; }
+h2 { margin: 0; color: #f2f2f2; font-size: 19px; font-weight: 600; letter-spacing: -.035em; }
+.panel-index, .live-label { margin-left: auto; padding-top: 3px; color: #666; font-size: 9px; font-weight: 800; letter-spacing: .14em; }
+.live-label { display: flex; align-items: center; gap: 7px; }
+.live-label .status-dot { width: 5px; height: 5px; }
+
+.device-state { min-height: 49px; display: flex; align-items: center; gap: 10px; margin: 20px 0 13px; padding: 0 12px; border: 1px solid #292929; background: #0b0b0b; }
+.state-indicator { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: #686868; }
+.device-state p { overflow-wrap: anywhere; margin: 0; color: #bcbcbc; font-size: 11px; line-height: 1.5; }
+
+.button { min-height: 39px; display: inline-flex; align-items: center; justify-content: center; gap: 14px; border: 1px solid transparent; border-radius: 2px; padding: 0 15px; cursor: pointer; font-size: 11px; font-weight: 800; transition: background .16s ease, color .16s ease, border-color .16s ease; }
+.button svg { width: 16px; height: 16px; }
+.button-light { background: var(--white); color: #090909; }
+.button-light:hover:not(:disabled) { background: #d6d6d6; }
+.button-outline { border-color: #444; background: transparent; color: #eee; }
+.button-outline:hover:not(:disabled) { border-color: #aaa; background: #1a1a1a; }
+.button:disabled { opacity: .35; cursor: not-allowed; }
+
+.file-drop { min-height: 68px; display: flex; align-items: center; gap: 11px; margin: 20px 0 10px; padding: 10px; border: 1px solid #292929; background: #0b0b0b; }
+.file-symbol { width: 37px; height: 37px; flex: 0 0 37px; display: grid; place-items: center; border: 1px solid #444; color: #eee; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.file-info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.file-info strong, .file-info span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-info strong { color: #e8e8e8; font-size: 10px; font-weight: 700; }
+.file-info span { color: #777; font-size: 9px; }
+.install-button { width: 100%; justify-content: space-between; }
+
+.log-panel { grid-column: 1 / -1; }
+.log-panel pre { min-height: 54px; overflow-wrap: anywhere; white-space: pre-wrap; margin: 18px 0 0; padding: 15px; border: 1px solid #292929; background: #0b0b0b; color: #aaa; font: 11px/1.7 Consolas, "Courier New", monospace; }
+
+.footer { display: flex; align-items: center; gap: 9px; margin-top: 27px; padding-top: 17px; border-top: 1px solid var(--line); color: #777; font-size: 9px; font-weight: 800; letter-spacing: .15em; }
+.footer .brand-mark { width: 18px; height: 18px; }
+.footer-note { margin-left: auto; color: #666; font-size: 9px; font-weight: 500; letter-spacing: 0; }
+
+@media (max-width: 680px) {
+  .app-shell { width: min(100% - 34px, 500px); padding-top: 18px; }
+  .intro { padding: 49px 0 30px; }
+  .content-grid { grid-template-columns: 1fr; }
+  .log-panel { grid-column: auto; }
+  .device-panel, .ipa-panel { min-height: 0; }
+  .footer { flex-wrap: wrap; }
+  .footer-note { width: 100%; margin: 4px 0 0 27px; }
 }
-main { max-width: 760px; margin: 45px auto; padding: 20px; }
-header { display: flex; align-items: center; gap: 15px; margin-bottom: 28px; }
-.logo {
-  width: 48px; height: 48px; border-radius: 14px;
-  background: #3678f6; display: grid; place-items: center;
-  font-size: 26px; font-weight: 800;
-}
-h1 { font-size: 23px; margin: 0 0 5px; }
-small, .version { color: #8995a8; }
-.version { margin-left: auto; }
-.panel {
-  background: #151c27; border: 1px solid #263244;
-  border-radius: 16px; padding: 22px; margin: 16px 0;
-}
-button {
-  background: #3478f6; color: white; border: 0;
-  border-radius: 9px; padding: 11px 16px;
-  cursor: pointer; margin: 5px;
-}
-button:disabled { opacity: .4; }
-.secondary { background: #273449; }
-input {
-  width: 100%; padding: 12px; background: #0d131d;
-  border: 1px solid #344155; border-radius: 9px; color: white;
-}
-pre { white-space: pre-wrap; color: #a9bad1; }
