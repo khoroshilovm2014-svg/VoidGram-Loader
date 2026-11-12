@@ -2,20 +2,34 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
+type Page = "device" | "apple" | "tools" | "settings";
+
 export default function App() {
-  const [device, setDevice] = useState("РЈСЃС‚СЂРѕР№СЃС‚РІРѕ РЅРµ РїСЂРѕРІРµСЂРµРЅРѕ");
+  const [page, setPage] = useState<Page>("device");
+  const [device, setDevice] = useState<string | null>(null);
+  const [deviceState, setDeviceState] = useState<"idle" | "connected" | "missing" | "error">("idle");
   const [ipa, setIpa] = useState("");
-  const [log, setLog] = useState("Р“РѕС‚РѕРІРѕ Рє СЂР°Р±РѕС‚Рµ");
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("Готово к работе");
+  const [appleEmail, setAppleEmail] = useState("");
 
   async function detect() {
     setBusy(true);
+    setNotice("Проверяем подключение…");
     try {
       const result = await invoke<string>("detect_devices");
-      setDevice(result || "РЈСЃС‚СЂРѕР№СЃС‚РІРѕ РЅРµ РЅР°Р№РґРµРЅРѕ");
-      setLog(result || "РџРѕРґРєР»СЋС‡РёС‚Рµ СѓСЃС‚СЂРѕР№СЃС‚РІРѕ Рё РїРѕРІС‚РѕСЂРёС‚Рµ РїСЂРѕРІРµСЂРєСѓ");
-    } catch (e) {
-      setLog(String(e));
+      if (!result.trim()) {
+        setDevice(null);
+        setDeviceState("missing");
+        setNotice("iPhone или iPad не найден");
+      } else {
+        setDevice(result.trim());
+        setDeviceState("connected");
+        setNotice("Устройство обнаружено");
+      }
+    } catch (error) {
+      setDeviceState("error");
+      setNotice(String(error));
     } finally {
       setBusy(false);
     }
@@ -23,50 +37,108 @@ export default function App() {
 
   async function chooseIpa() {
     try {
-      const selected = await open({
-        multiple: false,
-        filters: [{ name: "IPA", extensions: ["ipa"] }]
-      });
+      const selected = await open({ multiple: false, filters: [{ name: "IPA", extensions: ["ipa"] }] });
       if (typeof selected === "string") setIpa(selected);
-    } catch (e) {
-      setLog(String(e));
+    } catch (error) {
+      setNotice(String(error));
     }
   }
 
-  async function install() {
+  async function installIpa() {
+    if (!ipa) return;
     setBusy(true);
+    setNotice("Установка IPA…");
     try {
-      setLog(await invoke<string>("install_ipa", { path: ipa }));
-    } catch (e) {
-      setLog(String(e));
+      const result = await invoke<string>("install_ipa", { path: ipa });
+      setNotice(result || "Команда установки завершена");
+    } catch (error) {
+      setNotice(String(error));
     } finally {
       setBusy(false);
     }
   }
 
-  return <main>
-    <header>
-      <div className="logo">V</div>
-      <div><h1>VoidGram Loader</h1><small>IPA installer for iPhone and iPad</small></div>
-      <span className="version">0.4.0</span>
-    </header>
+  const nav = [
+    { id: "device" as const, label: "Устройство", icon: "▣" },
+    { id: "apple" as const, label: "Apple ID", icon: "♙" },
+    { id: "tools" as const, label: "Инструменты", icon: "⌘" },
+    { id: "settings" as const, label: "Настройки", icon: "⚙" },
+  ];
 
-    <section className="panel">
-      <h2>РЈСЃС‚СЂРѕР№СЃС‚РІРѕ</h2>
-      <p>{device}</p>
-      <button disabled={busy} onClick={detect}>РќР°Р№С‚Рё СѓСЃС‚СЂРѕР№СЃС‚РІРѕ</button>
-    </section>
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark">V</div>
+          <div><div className="brand-name">VoidGram</div><div className="brand-caption">LOADER</div></div>
+        </div>
+        <div className="nav-caption">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+        <nav>
+          {nav.map(item => <button key={item.id} className={page === item.id ? "nav-item active" : "nav-item"} onClick={() => setPage(item.id)}>
+            <span className="nav-icon">{item.icon}</span>{item.label}
+          </button>)}
+        </nav>
+        <div className="sidebar-bottom">
+          <span className="ready-dot" />
+          <div><strong>Готово к работе</strong><small>VoidGram Loader · 0.4.0</small></div>
+        </div>
+      </aside>
 
-    <section className="panel">
-      <h2>IPA-С„Р°Р№Р»</h2>
-      <input readOnly value={ipa} placeholder="Р’С‹Р±РµСЂРёС‚Рµ IPA-С„Р°Р№Р»" />
-      <button className="secondary" onClick={chooseIpa}>РћР±Р·РѕСЂ</button>
-      <button disabled={!ipa || busy} onClick={install}>РЈСЃС‚Р°РЅРѕРІРёС‚СЊ</button>
-    </section>
+      <main className="workspace">
+        <header className="topbar">
+          <div><div className="eyebrow">VOIDGRAM LOADER</div><h1>{nav.find(item => item.id === page)?.label}</h1></div>
+          <div className="top-status"><span className="ready-dot" />Готово к работе</div>
+        </header>
 
-    <section className="panel">
-      <h2>Р–СѓСЂРЅР°Р»</h2>
-      <pre>{log}</pre>
-    </section>
-  </main>;
+        {page === "device" && <div className="page-content">
+          <section className="section-heading"><div><h2>Устройство</h2><p>Подключите iPhone или iPad к компьютеру по USB</p></div>
+            <button className="button button-secondary" onClick={detect} disabled={busy}>↻ Обновить информацию</button>
+          </section>
+          <section className="card device-card">
+            <div className="device-visual">▯</div>
+            <div className="device-info"><h3>{device ? "Устройство обнаружено" : "iPhone или iPad"}</h3><p>{device || "Подключите устройство кабелем USB и нажмите «Обновить информацию»."}</p>
+              <div className="connection"><span className={`state-dot ${deviceState}`} /><span>Состояние: {deviceState === "connected" ? "Подключено" : deviceState === "error" ? "Ошибка подключения" : deviceState === "missing" ? "Не подключено" : "Не проверено"}</span></div>
+            </div>
+            <button className="button button-primary" onClick={detect} disabled={busy}>{busy ? "Проверка…" : "Подключить"}</button>
+          </section>
+          <button className="info-link" onClick={() => setNotice("Сведения появятся после обнаружения устройства.")}>ⓘ Сведения об устройстве</button>
+
+          <section className="section-heading tools-heading"><div><h2>Основные инструменты</h2><p>Управление учётной записью и установкой приложений</p></div></section>
+          <section className="card apple-card">
+            <div className="person-icon">♙</div><div className="apple-copy"><h3>Apple ID</h3><p>{appleEmail ? appleEmail : "Войдите в Apple ID для работы с подписыванием приложений."}</p></div>
+            <button className="button button-secondary" onClick={() => setPage("apple")}>{appleEmail ? "Обновить Apple ID" : "Войти в Apple ID"}</button>
+          </section>
+          <section className="install-card">
+            <div className="install-copy"><div className="install-icon">V</div><div><div className="install-title">Установка VoidGram</div><p>Неофициальный мессенджер VoidGram от команды разработчиков VoidDev</p></div></div>
+            <button className="button button-light" onClick={() => setNotice("Установочный пакет VoidGram ещё не подключён.")}>Установить</button>
+          </section>
+        </div>}
+
+        {page === "apple" && <div className="page-content narrow">
+          <section className="section-heading"><div><h2>Apple ID</h2><p>Управление учётной записью Apple</p></div></section>
+          <section className="card form-card"><div className="person-icon large">♙</div><h3>{appleEmail ? "Учётная запись" : "Войти в Apple ID"}</h3><p>Авторизация будет подключена через безопасный официальный механизм. Не вводите пароль на сторонних страницах.</p>
+            <label>Apple ID (электронная почта)</label><input value={appleEmail} onChange={e => setAppleEmail(e.target.value)} placeholder="name@example.com" />
+            <button className="button button-primary" onClick={() => setNotice("Для входа требуется реализовать официальный поток авторизации Apple.")}>Продолжить</button>
+            <small className="muted">Пароль и коды подтверждения приложение здесь не запрашивает.</small>
+          </section>
+        </div>}
+
+        {page === "tools" && <div className="page-content">
+          <section className="section-heading"><div><h2>Инструменты</h2><p>Установка и обслуживание приложений</p></div></section>
+          <section className="card form-card"><h3>Установка IPA</h3><p>Выберите IPA-файл для установки на подключённое устройство.</p>
+            <div className="file-row"><input readOnly value={ipa} placeholder="Файл не выбран" /><button className="button button-secondary" onClick={chooseIpa}>Обзор</button></div>
+            <button className="button button-primary" disabled={!ipa || busy || deviceState !== "connected"} onClick={installIpa}>{busy ? "Установка…" : "Установить IPA"}</button>
+            {deviceState !== "connected" && <small className="muted">Сначала подключите устройство.</small>}
+          </section>
+        </div>}
+
+        {page === "settings" && <div className="page-content narrow">
+          <section className="section-heading"><div><h2>Настройки</h2><p>Параметры приложения</p></div></section>
+          <section className="card setting-row"><div><h3>Язык интерфейса</h3><p>Русский</p></div><span className="muted">RU</span></section>
+          <section className="card setting-row"><div><h3>Версия приложения</h3><p>VoidGram Loader</p></div><span className="muted">0.4.0</span></section>
+        </div>}
+        <footer className="statusbar"><span className="ready-dot" />{notice}</footer>
+      </main>
+    </div>
+  );
 }
