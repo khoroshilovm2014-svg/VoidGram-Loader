@@ -3,19 +3,19 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 export default function App() {
-  const [device, setDevice] = useState("РЈСЃС‚СЂРѕР№СЃС‚РІРѕ РЅРµ РїСЂРѕРІРµСЂРµРЅРѕ");
+  const [device, setDevice] = useState("Устройство не проверено");
   const [ipa, setIpa] = useState("");
-  const [log, setLog] = useState("Р“РѕС‚РѕРІРѕ Рє СЂР°Р±РѕС‚Рµ");
+  const [log, setLog] = useState("Готово к работе");
   const [busy, setBusy] = useState(false);
 
   async function detect() {
     setBusy(true);
     try {
       const result = await invoke<string>("detect_devices");
-      setDevice(result || "РЈСЃС‚СЂРѕР№СЃС‚РІРѕ РЅРµ РЅР°Р№РґРµРЅРѕ");
-      setLog(result || "РџРѕРґРєР»СЋС‡РёС‚Рµ СѓСЃС‚СЂРѕР№СЃС‚РІРѕ Рё РїРѕРІС‚РѕСЂРёС‚Рµ РїСЂРѕРІРµСЂРєСѓ");
-    } catch (e) {
-      setLog(String(e));
+      setDevice(result || "Устройство не найдено");
+      setLog(result || "Подключите iPhone и повторите проверку");
+    } catch (error) {
+      setLog(String(error));
     } finally {
       setBusy(false);
     }
@@ -25,48 +25,57 @@ export default function App() {
     try {
       const selected = await open({
         multiple: false,
-        filters: [{ name: "IPA", extensions: ["ipa"] }]
+        filters: [{ name: "IPA-файл", extensions: ["ipa"] }]
       });
       if (typeof selected === "string") setIpa(selected);
-    } catch (e) {
-      setLog(String(e));
+    } catch (error) {
+      setLog(String(error));
     }
   }
 
   async function install() {
+    if (!ipa) return;
     setBusy(true);
     try {
       setLog(await invoke<string>("install_ipa", { path: ipa }));
-    } catch (e) {
-      setLog(String(e));
+    } catch (error) {
+      setLog(String(error));
     } finally {
       setBusy(false);
     }
   }
 
-  return <main>
-    <header>
-      <div className="logo">V</div>
-      <div><h1>VoidGram Loader</h1><small>IPA installer for iPhone and iPad</small></div>
-      <span className="version">0.4.0</span>
-    </header>
+  return (
+    <main>
+      <header>
+        <div className="logo">V</div>
+        <div>
+          <h1>VoidGram Loader</h1>
+          <small>Установка IPA на iPhone и iPad</small>
+        </div>
+        <span className="version">0.4.1</span>
+      </header>
 
-    <section className="panel">
-      <h2>РЈСЃС‚СЂРѕР№СЃС‚РІРѕ</h2>
-      <p>{device}</p>
-      <button disabled={busy} onClick={detect}>РќР°Р№С‚Рё СѓСЃС‚СЂРѕР№СЃС‚РІРѕ</button>
-    </section>
+      <section className="panel">
+        <h2>Устройство</h2>
+        <p>{device}</p>
+        <button disabled={busy} onClick={detect}>
+          {busy ? "Пожалуйста, подождите…" : "Найти устройство"}
+        </button>
+      </section>
 
-    <section className="panel">
-      <h2>IPA-С„Р°Р№Р»</h2>
-      <input readOnly value={ipa} placeholder="Р’С‹Р±РµСЂРёС‚Рµ IPA-С„Р°Р№Р»" />
-      <button className="secondary" onClick={chooseIpa}>РћР±Р·РѕСЂ</button>
-      <button disabled={!ipa || busy} onClick={install}>РЈСЃС‚Р°РЅРѕРІРёС‚СЊ</button>
-    </section>
+      <section className="panel">
+        <h2>IPA-файл</h2>
+        <input readOnly value={ipa} placeholder="Выберите IPA-файл" />
+        <button className="secondary" disabled={busy} onClick={chooseIpa}>Обзор</button>
+        <button disabled={!ipa || busy} onClick={install}>Установить</button>
+      </section>
 
-    <section className="panel">
-      <h2>Р–СѓСЂРЅР°Р»</h2>
-      <pre>{log}</pre>
-    </section>
-  </main>;
+      <section className="panel">
+        <h2>Журнал</h2>
+        <pre>{log}</pre>
+      </section>
+      <p className="note">Для обнаружения устройства и установки требуется установленный драйвер Apple и инструменты libimobiledevice. Подписание приложений Apple ID в этой версии пока не реализовано.</p>
+    </main>
+  );
 }
