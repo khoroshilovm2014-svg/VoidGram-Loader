@@ -128,9 +128,9 @@ async fn latest_voidgram_release() -> Result<ReleaseInfo, String> {
         .map(str::to_owned);
     Ok(ReleaseInfo {
         version: release.tag_name.trim_start_matches('v').to_owned(),
-        title: release.name,
-        page_url: release.html_url,
-        published_at: release.published_at,
+        title: release.name.clone(),
+        page_url: release.html_url.clone(),
+        published_at: release.published_at.clone(),
         ipa_name: asset.name.clone(),
         ipa_size: asset.size,
         sha256,
