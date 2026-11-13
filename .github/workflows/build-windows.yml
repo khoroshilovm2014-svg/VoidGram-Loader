@@ -3,7 +3,7 @@ name: Build Windows installer
 on:
   workflow_dispatch:
   push:
-    branches: [main, voidgram-development]
+    branches: [main, voidgram-development, build-v18]
 
 permissions:
   contents: read
@@ -13,16 +13,48 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Prepare bundled libimobiledevice tools
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $archive = Join-Path $env:RUNNER_TEMP "libimobile-suite.zip"
+          $extract = Join-Path $env:RUNNER_TEMP "libimobile-suite"
+          $url = "https://github.com/jrjr/libimobiledevice-windows/releases/download/v20261108-74585f8/libimobile-suite-latest_w64.zip"
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          $actual = (Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = "61e3fd1cc5ded01695cc464f3de8a7bf706c340cad9f2e142c4aafa747bf1324"
+          if ($actual -ne $expected) { throw "libimobiledevice archive SHA-256 mismatch" }
+          Expand-Archive -Path $archive -DestinationPath $extract -Force
+          $idTool = Get-ChildItem -Path $extract -Recurse -Filter "idevice_id.exe" | Select-Object -First 1
+          $installer = Get-ChildItem -Path $extract -Recurse -Filter "ideviceinstaller.exe" | Select-Object -First 1
+          if (-not $idTool) { throw "Bundled suite does not contain idevice_id.exe" }
+          if (-not $installer) { throw "Bundled suite does not contain ideviceinstaller.exe; cannot ship a working IPA installer" }
+          $toolDir = $idTool.Directory.FullName
+          New-Item -ItemType Directory -Force -Path "src-tauri/resources/idevice" | Out-Null
+          Copy-Item -Path (Join-Path $toolDir "*") -Destination "src-tauri/resources/idevice" -Recurse -Force
+          Write-Host "Bundled tools:"
+          Get-ChildItem "src-tauri/resources/idevice" -File | Select-Object -ExpandProperty Name
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install dependencies
+
+      - name: Install NSIS
+        run: choco install nsis --yes --no-progress
+
+      - name: Install frontend dependencies
         run: npm install
-      - name: Build installer
+
+      - name: Build Tauri installer
         run: npm run tauri:build
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
         with:
           name: VoidGram-Loader-setup
           path: src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
+          retention-days: 14
