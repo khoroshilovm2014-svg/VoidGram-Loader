@@ -85,17 +85,17 @@ export default function App() {
   useEffect(() => { void checkRelease(); void detect(); }, []);
 
   const nav: { id: Page; label: string; icon: string }[] = [
-    { id: "device", label: "Устройство", icon: "▯" },
-    { id: "apple", label: "Apple ID", icon: "♙" },
-    { id: "tools", label: "Инструменты", icon: "⚒" },
-    { id: "settings", label: "Настройки", icon: "⚙" },
+    { id: "device", label: "Устройство", icon: "device" },
+    { id: "apple", label: "Apple ID", icon: "user" },
+    { id: "tools", label: "Инструменты", icon: "tools" },
+    { id: "settings", label: "Настройки", icon: "settings" },
   ];
 
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand-logo"><LogoMark className="void-mark" /><strong>VoidGram Loader</strong></div>
-      <div className="brand-hero"><LogoMark className="hero-mark" /><h2>VoidGram Loader</h2><p>v0.5.0</p></div>
-      <nav>{nav.map(item => <button key={item.id} className={page === item.id ? "nav-item active" : "nav-item"} onClick={() => setPage(item.id)}><span className="nav-icon">{item.icon}</span>{item.label}</button>)}</nav>
+      <div className="brand-hero"><LogoMark className="hero-mark" /><h2>VoidGram Loader</h2><p>v0.5.1</p></div>
+      <nav>{nav.map(item => <button key={item.id} className={page === item.id ? "nav-item active" : "nav-item"} onClick={() => setPage(item.id)}><span className={`nav-icon nav-${item.icon}`} aria-hidden="true">{item.icon === "device" ? <svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M10 18.5h4"/></svg> : item.icon === "user" ? <svg viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="4"/><path d="M4 21c.7-4.1 3.4-6.2 8-6.2s7.3 2.1 8 6.2"/></svg> : item.icon === "tools" ? <svg viewBox="0 0 24 24"><path d="M14.5 6.5a5 5 0 0 0 6.2 6.2L13 20.4a2.1 2.1 0 0 1-3-3l7.7-7.7"/><path d="m4 4 5 5M3 9l6-6M15 4l5 5M4 15l5 5"/></svg> : <svg viewBox="0 0 24 24"><path d="M12 2.5 14 4l2.3-.1 1.1 2 2 1.1-.1 2.3 1.5 2-1.5 2 .1 2.3-2 1.1-1.1 2-2.3-.1-2 1.5-2-1.5-2.3.1-1.1-2-2-1.1.1-2.3L2.5 12 4 10l-.1-2.3 2-1.1 1.1-2 2.3.1z"/><circle cx="12" cy="12" r="3"/></svg>}</span>{item.label}</button>)}</nav>
       <div className="sidebar-status"><i className="green-dot"/><span>Готово к работе</span></div>
     </aside>
 
@@ -119,9 +119,9 @@ export default function App() {
         <section className="panel tools-panel">
           <h2>Основные инструменты</h2>
           <div className="inner-card apple-row">
-            <div className="person-symbol">♙</div>
+            <div className="person-symbol" aria-hidden="true"><svg viewBox="0 0 64 64"><circle cx="32" cy="17" r="11"/><path d="M10 59c1.5-13 9-20 22-20s20.5 7 22 20"/></svg></div>
             <div className="row-copy"><h3>Войти в Apple ID</h3><p>{appleEmail || "Войдите в Apple ID для доступа"}<br/>к сервисам и сертификатам.</p></div>
-            <button className="light-button" onClick={() => setPage("apple")}>⇥　Войти в Apple ID</button>
+            <button className="light-button" onClick={() => setPage("apple")}><svg className="login-icon" viewBox="0 0 24 24"><path d="M13 4h6v16h-6M3 12h13m-5-5 5 5-5 5"/></svg>Войти в Apple ID</button>
           </div>
         </section>
 
@@ -130,7 +130,7 @@ export default function App() {
           <div className="inner-card install-row">
             <div className="app-icon"><LogoMark className="hero-mark" /></div>
             <div className="row-copy"><h3>VoidGram</h3><p>Неофициальный мессенджер VoidGram</p><p>От команды разработчиков VoidDev.</p>{release && <small>Последняя версия: {release.version} · {(release.ipaSize / 1048576).toFixed(1)} МБ</small>}</div>
-            <button className="light-button install-button" onClick={downloadRelease} disabled={busy || !release}><span className="button-symbol">↓</span>{busy ? "Загрузка…" : "Установить"}</button>
+            <button className="light-button install-button" onClick={downloadRelease} disabled={busy || !release}><svg className="download-icon" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>{busy ? "Загрузка…" : "Установить"}</button>
           </div>
           {downloadedVersion && <div className="downloaded-note"><span>{`IPA: ${downloadedVersion}`}</span><button className="outline-button compact" onClick={install} disabled={busy || deviceState !== "connected" || requiresSigning}>{requiresSigning ? "Требуется подпись" : "Установить на iPhone"}</button></div>}
         </section>
@@ -140,7 +140,7 @@ export default function App() {
 
       {page === "tools" && <div className="page-content secondary-page"><h1>Инструменты</h1><section className="panel form-panel"><h2>Установка IPA</h2><p>Выберите IPA-файл с компьютера. Для установки требуется подключённый iPhone и действительная подпись приложения.</p><div className="file-picker"><input readOnly value={ipa} placeholder="IPA-файл не выбран"/><button className="outline-button" onClick={chooseIpa}>Обзор…</button></div><button className="light-button" onClick={install} disabled={!ipa || busy || deviceState !== "connected" || requiresSigning}>Установить IPA</button></section><section className="panel form-panel"><h2>Журнал операций</h2><div className="history">{history.length ? history.map((line,i)=><p key={i}>{line}</p>) : <p>Операции пока не выполнялись.</p>}</div></section></div>}
 
-      {page === "settings" && <div className="page-content secondary-page"><h1>Настройки</h1><section className="panel setting-panel"><div><h3>Версия приложения</h3><p>VoidGram Loader 0.5.0</p></div><span>0.5.0</span></section><section className="panel setting-panel"><div><h3>Обновление VoidGram</h3><p>{release ? `Последняя версия: ${release.version}` : "Информация о релизе недоступна"}</p></div><button className="outline-button" onClick={checkRelease}>Проверить обновления</button></section><section className="panel setting-panel"><div><h3>Журнал операций</h3><p>Последние действия приложения</p></div><button className="outline-button" onClick={() => setPage("tools")}>Открыть журнал</button></section></div>}
+      {page === "settings" && <div className="page-content secondary-page"><h1>Настройки</h1><section className="panel setting-panel"><div><h3>Версия приложения</h3><p>VoidGram Loader 0.5.1</p></div><span>0.5.1</span></section><section className="panel setting-panel"><div><h3>Обновление VoidGram</h3><p>{release ? `Последняя версия: ${release.version}` : "Информация о релизе недоступна"}</p></div><button className="outline-button" onClick={checkRelease}>Проверить обновления</button></section><section className="panel setting-panel"><div><h3>Журнал операций</h3><p>Последние действия приложения</p></div><button className="outline-button" onClick={() => setPage("tools")}>Открыть журнал</button></section></div>}
       <footer className="statusbar"><span className="green-dot"/>{notice}</footer>
     </main>
   </div>;
