@@ -25,19 +25,21 @@ jobs:
             mingw-w64-ucrt-x86_64-libimobiledevice
       - name: Bundle iPhone support tools
         shell: msys2 {0}
+        working-directory: src-tauri
         run: |
           set -euo pipefail
-          mkdir -p src-tauri/resources/idevice
+          pwd
+          mkdir -p resources/idevice
           for tool in idevice_id ideviceinfo ideviceinstaller; do
             command -v "$tool"
-            cp "$(command -v "$tool")" src-tauri/resources/idevice/
+            cp "$(command -v "$tool")" resources/idevice/
           done
-          cp /ucrt64/bin/*.dll src-tauri/resources/idevice/
-          test -f src-tauri/resources/idevice/idevice_id.exe
-          test -f src-tauri/resources/idevice/ideviceinfo.exe
-          test -f src-tauri/resources/idevice/ideviceinstaller.exe
+          cp /ucrt64/bin/*.dll resources/idevice/
+          test -f resources/idevice/idevice_id.exe
+          test -f resources/idevice/ideviceinfo.exe
+          test -f resources/idevice/ideviceinstaller.exe
           echo "Bundled device tools and runtime DLLs:"
-          find src-tauri/resources/idevice -maxdepth 1 -type f | wc -l
+          find resources/idevice -maxdepth 1 -type f | wc -l
 
       - uses: actions/setup-node@v4
         with:
@@ -50,6 +52,19 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm install
+
+      - name: Verify bundled iPhone tools
+        shell: pwsh
+        run: |
+          $tools = @("idevice_id.exe", "ideviceinfo.exe", "ideviceinstaller.exe")
+          $folder = Join-Path $env:GITHUB_WORKSPACE "src-tauri/resources/idevice"
+          foreach ($tool in $tools) {
+            $path = Join-Path $folder $tool
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Required bundled tool missing: $path" }
+          }
+          $count = (Get-ChildItem -LiteralPath $folder -File).Count
+          if ($count -lt 4) { throw "Expected device tools and runtime DLLs in $folder; found $count files" }
+          Write-Host "Verified $count bundled files in $folder"
 
       - name: Build Tauri installer
         run: npm run tauri:build
