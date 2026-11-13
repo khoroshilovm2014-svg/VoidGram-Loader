@@ -27,15 +27,20 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $bin = "C:\msys64\ucrt64\bin"
-          foreach ($tool in @("idevice_id.exe", "ideviceinfo.exe", "ideviceinstaller.exe")) {
-            $path = Join-Path $bin $tool
-            if (-not (Test-Path $path)) { throw "Required tool missing from MSYS2: $tool" }
+          $tools = @("idevice_id.exe", "ideviceinfo.exe", "ideviceinstaller.exe")
+          $commands = @()
+          foreach ($tool in $tools) {
+            $command = Get-Command $tool -ErrorAction SilentlyContinue
+            if (-not $command) { throw "Required MSYS2 command is not on PATH: $tool" }
+            $commands += $command.Source
           }
+          $bin = Split-Path $commands[0] -Parent
           New-Item -ItemType Directory -Force -Path "src-tauri/resources/idevice" | Out-Null
-          Copy-Item -Path (Join-Path $bin "*.exe") -Destination "src-tauri/resources/idevice" -Force
-          Copy-Item -Path (Join-Path $bin "*.dll") -Destination "src-tauri/resources/idevice" -Force
-          foreach ($tool in @("idevice_id.exe", "ideviceinfo.exe", "ideviceinstaller.exe")) {
+          foreach ($path in $commands) {
+            Copy-Item -LiteralPath $path -Destination "src-tauri/resources/idevice" -Force
+          }
+          Get-ChildItem -Path $bin -Filter "*.dll" | Copy-Item -Destination "src-tauri/resources/idevice" -Force
+          foreach ($tool in $tools) {
             if (-not (Test-Path "src-tauri/resources/idevice/$tool")) { throw "Failed to bundle $tool" }
           }
           Write-Host "Bundled device tools and runtime DLLs:"
