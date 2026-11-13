@@ -23,7 +23,7 @@ jobs:
           install: >-
             mingw-w64-ucrt-x86_64-ideviceinstaller
             mingw-w64-ucrt-x86_64-libimobiledevice
-- name: Bundle iPhone support tools
+      - name: Bundle iPhone support tools
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
