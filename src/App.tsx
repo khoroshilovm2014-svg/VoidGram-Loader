@@ -8,180 +8,132 @@ type DownloadedIpa = { version: string; path: string; size: number; sha256: stri
 
 export default function App() {
   const [page, setPage] = useState<Page>("device");
-  const [device, setDevice] = useState<string | null>(null);
+  const [device, setDevice] = useState("");
   const [deviceState, setDeviceState] = useState<"idle" | "connected" | "missing" | "error">("idle");
   const [ipa, setIpa] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("Готово к работе");
   const [appleEmail, setAppleEmail] = useState("");
-  const [latestRelease, setLatestRelease] = useState<ReleaseInfo | null>(null);
+  const [release, setRelease] = useState<ReleaseInfo | null>(null);
   const [downloadedVersion, setDownloadedVersion] = useState("");
   const [requiresSigning, setRequiresSigning] = useState(false);
+  const [history, setHistory] = useState<string[]>([]);
+
+  function report(message: string) {
+    setNotice(message);
+    setHistory(old => [`${new Date().toLocaleTimeString("ru-RU")} · ${message}`, ...old].slice(0, 30));
+  }
 
   async function detect() {
-    setBusy(true);
-    setNotice("Проверяем подключение…");
+    setBusy(true); report("Проверка USB-подключения…");
     try {
       const result = await invoke<string>("detect_devices");
-      if (!result.trim()) {
-        setDevice(null);
-        setDeviceState("missing");
-        setNotice("iPhone или iPad не найден");
-      } else {
-        setDevice(result.trim());
-        setDeviceState("connected");
-        setNotice("Устройство обнаружено");
-      }
+      setDevice(result.trim());
+      setDeviceState(result.trim() ? "connected" : "missing");
+      report(result.trim() ? "iPhone обнаружен" : "Устройство не найдено. Проверьте кабель и доверие этому компьютеру.");
     } catch (error) {
-      setDeviceState("error");
-      setNotice(String(error));
-    } finally {
-      setBusy(false);
-    }
+      setDeviceState("error"); report(String(error));
+    } finally { setBusy(false); }
   }
 
   async function chooseIpa() {
     try {
       const selected = await open({ multiple: false, filters: [{ name: "IPA", extensions: ["ipa"] }] });
-      if (typeof selected === "string") { setIpa(selected); setRequiresSigning(false); setDownloadedVersion("Выбранный IPA"); }
-    } catch (error) {
-      setNotice(String(error));
-    }
+      if (typeof selected === "string") {
+        setIpa(selected); setRequiresSigning(false); setDownloadedVersion("Локальный файл");
+        report("IPA-файл выбран. Перед установкой проверьте, что он подписан для вашего устройства.");
+      }
+    } catch (error) { report(String(error)); }
   }
 
-  async function checkLatestRelease() {
+  async function checkRelease() {
     try {
-      const release = await invoke<ReleaseInfo>("latest_voidgram_release");
-      setLatestRelease(release);
-      setNotice(`Найдена версия VoidGram ${release.version}`);
-    } catch (error) {
-      setNotice(`Не удалось проверить обновление: ${String(error)}`);
-    }
+      const value = await invoke<ReleaseInfo>("latest_voidgram_release");
+      setRelease(value); report(`Доступна версия VoidGram ${value.version}`);
+    } catch (error) { setRelease(null); report(`Проверка релиза не удалась: ${String(error)}`); }
   }
 
-  async function downloadLatestIpa() {
-    setBusy(true);
-    setNotice("Загружаем последнюю версию VoidGram…");
+  async function downloadRelease() {
+    setBusy(true); report("Загрузка IPA и проверка файла…");
     try {
-      const result = await invoke<DownloadedIpa>("download_latest_voidgram_ipa");
-      setIpa(result.path);
-      setDownloadedVersion(result.version);
-      setRequiresSigning(result.requiresSigning);
-      setNotice(result.requiresSigning
-        ? `VoidGram ${result.version} загружен и проверен. IPA неподписан — перед установкой нужна подпись.`
-        : `VoidGram ${result.version} загружен и проверен по SHA-256.`);
-    } catch (error) {
-      setNotice(String(error));
-    } finally {
-      setBusy(false);
-    }
+      const value = await invoke<DownloadedIpa>("download_latest_voidgram_ipa");
+      setIpa(value.path); setDownloadedVersion(value.version); setRequiresSigning(value.requiresSigning);
+      report(`VoidGram ${value.version} загружен. SHA-256: ${value.sha256.slice(0, 16)}…`);
+    } catch (error) { report(String(error)); }
+    finally { setBusy(false); }
   }
 
-  async function installIpa() {
+  async function install() {
     if (!ipa) return;
-    if (requiresSigning) {
-      setNotice("Этот IPA неподписан. Сначала нужно реализовать безопасную подпись Apple.");
-      return;
-    }
-    setBusy(true);
-    setNotice("Установка IPA…");
+    if (requiresSigning) { report("Установка остановлена: этот IPA требует подписи Apple Developer. Неподписанный файл не устанавливается."); return; }
+    setBusy(true); report("Передача IPA на iPhone…");
     try {
       const result = await invoke<string>("install_ipa", { path: ipa });
-      setNotice(result || "Команда установки завершена");
-    } catch (error) {
-      setNotice(String(error));
-    } finally {
-      setBusy(false);
-    }
+      report(result || "Команда установки завершилась без ошибки.");
+    } catch (error) { report(String(error)); }
+    finally { setBusy(false); }
   }
 
-  useEffect(() => { void checkLatestRelease(); }, []);
+  useEffect(() => { void checkRelease(); void detect(); }, []);
 
-  const nav = [
-    { id: "device" as const, label: "Устройство", icon: "▣" },
-    { id: "apple" as const, label: "Apple ID", icon: "♙" },
-    { id: "tools" as const, label: "Инструменты", icon: "⌘" },
-    { id: "settings" as const, label: "Настройки", icon: "⚙" },
+  const nav: { id: Page; label: string; icon: string }[] = [
+    { id: "device", label: "Устройство", icon: "▯" },
+    { id: "apple", label: "Apple ID", icon: "♙" },
+    { id: "tools", label: "Инструменты", icon: "⚒" },
+    { id: "settings", label: "Настройки", icon: "⚙" },
   ];
 
-  return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">V</div>
-          <div><div className="brand-name">VoidGram</div><div className="brand-caption">LOADER</div></div>
-        </div>
-        <div className="nav-caption">РАБОЧЕЕ ПРОСТРАНСТВО</div>
-        <nav>
-          {nav.map(item => <button key={item.id} className={page === item.id ? "nav-item active" : "nav-item"} onClick={() => setPage(item.id)}>
-            <span className="nav-icon">{item.icon}</span>{item.label}
-          </button>)}
-        </nav>
-        <div className="sidebar-bottom">
-          <span className="ready-dot" />
-          <div><strong>Готово к работе</strong><small>VoidGram Loader · 0.4.0</small></div>
-        </div>
-      </aside>
+  return <div className="app-shell">
+    <aside className="sidebar">
+      <div className="brand-logo"><span className="void-mark">V</span><strong>VoidGram Loader</strong></div>
+      <div className="brand-hero"><div className="hero-mark">V</div><h2>VoidGram Loader</h2><p>v0.5.0</p></div>
+      <nav>{nav.map(item => <button key={item.id} className={page === item.id ? "nav-item active" : "nav-item"} onClick={() => setPage(item.id)}><span className="nav-icon">{item.icon}</span>{item.label}</button>)}</nav>
+      <div className="sidebar-status"><i className="green-dot"/><span>Готово к работе</span></div>
+    </aside>
 
-      <main className="workspace">
-        <header className="topbar">
-          <div><div className="eyebrow">VOIDGRAM LOADER</div><h1>{nav.find(item => item.id === page)?.label}</h1></div>
-          <div className="top-status"><span className="ready-dot" />Готово к работе</div>
-        </header>
+    <main className="workspace">
+      {page === "device" && <div className="page-content">
+        <h1>Устройство</h1>
+        <section className="panel device-panel">
+          <div className="phone-outline"><span/></div>
+          <div className="device-details">
+            <div className="device-heading"><h2>{device ? device.split("\n")[0] : "iPhone не подключён"}</h2><span className="usb-tag">USB</span></div>
+            <p>{device ? device.split("\n").slice(1,2)[0] || "Информация об iOS недоступна" : "Подключите iPhone к компьютеру через USB"}</p>
+            <p>{device ? device.split("\n").slice(2).join(" ") : "UDID: —"}</p>
+            <div className="connection"><span className={deviceState === "connected" ? "state-dot online" : "state-dot offline"}/><span>Состояние: {deviceState === "connected" ? "Подключено" : deviceState === "error" ? "Ошибка подключения" : "Не подключено"}</span></div>
+          </div>
+          <div className="device-actions">
+            <button className="outline-button" onClick={detect} disabled={busy}><span className="button-symbol">↻</span>Обновить информацию</button>
+            <button className="outline-button" onClick={() => report(device || "Сведения появятся после подключения iPhone.")}><span className="button-symbol">ⓘ</span>Сведения об устройстве</button>
+          </div>
+        </section>
 
-        {page === "device" && <div className="page-content">
-          <section className="section-heading"><div><h2>Устройство</h2><p>Подключите iPhone или iPad к компьютеру по USB</p></div>
-            <button className="button button-secondary" onClick={detect} disabled={busy}>↻ Обновить информацию</button>
-          </section>
-          <section className="card device-card">
-            <div className="device-visual">▯</div>
-            <div className="device-info"><h3>{device ? "Устройство обнаружено" : "iPhone или iPad"}</h3><p>{device || "Подключите устройство кабелем USB и нажмите «Обновить информацию»."}</p>
-              <div className="connection"><span className={`state-dot ${deviceState}`} /><span>Состояние: {deviceState === "connected" ? "Подключено" : deviceState === "error" ? "Ошибка подключения" : deviceState === "missing" ? "Не подключено" : "Не проверено"}</span></div>
-            </div>
-            <button className="button button-primary" onClick={detect} disabled={busy}>{busy ? "Проверка…" : "Подключить"}</button>
-          </section>
-          <button className="info-link" onClick={() => setNotice("Сведения появятся после обнаружения устройства.")}>ⓘ Сведения об устройстве</button>
+        <section className="panel tools-panel">
+          <h2>Основные инструменты</h2>
+          <div className="inner-card apple-row">
+            <div className="person-symbol">♙</div>
+            <div className="row-copy"><h3>Войти в Apple ID</h3><p>{appleEmail || "Войдите в Apple ID для доступа"}<br/>к сервисам и сертификатам.</p></div>
+            <button className="light-button" onClick={() => setPage("apple")}>⇥　Войти в Apple ID</button>
+          </div>
+        </section>
 
-          <section className="section-heading tools-heading"><div><h2>Основные инструменты</h2><p>Управление учётной записью и установкой приложений</p></div></section>
-          <section className="card apple-card">
-            <div className="person-icon">♙</div><div className="apple-copy"><h3>Apple ID</h3><p>{appleEmail ? appleEmail : "Войдите в Apple ID для работы с подписыванием приложений."}</p></div>
-            <button className="button button-secondary" onClick={() => setPage("apple")}>{appleEmail ? "Обновить Apple ID" : "Войти в Apple ID"}</button>
-          </section>
-          <section className="install-card">
-            <div className="install-copy"><div className="install-icon">V</div><div><div className="install-title">Установка VoidGram</div><p>Неофициальный мессенджер VoidGram от команды разработчиков VoidDev</p><p className="release-meta">{latestRelease ? `Последняя версия: ${latestRelease.version} · ${(latestRelease.ipaSize / 1024 / 1024).toFixed(1)} МБ` : "Проверяем последнюю версию…"}</p></div></div>
-            <div className="install-actions">
-              <button className="button button-secondary" onClick={checkLatestRelease} disabled={busy}>Проверить</button>
-              <button className="button button-light" onClick={downloadLatestIpa} disabled={busy || !latestRelease}>{busy ? "Подождите…" : "Скачать актуальную IPA"}</button>
-            </div>
-          </section>
-          {downloadedVersion && <section className="card release-result"><div><strong>VoidGram {downloadedVersion}</strong><p>{requiresSigning ? "Файл скачан и проверен. Релиз разработчика опубликован как неподписанный IPA; установка на iPhone пока заблокирована до реализации подписи." : "Файл подготовлен к установке."}</p></div><button className="button button-primary" onClick={installIpa} disabled={busy || requiresSigning || !ipa}>Установить</button></section>}
-        </div>}
+        <section className="panel install-panel">
+          <h2>Установка VoidGram</h2>
+          <div className="inner-card install-row">
+            <div className="app-icon"><span className="hero-mark">V</span></div>
+            <div className="row-copy"><h3>VoidGram</h3><p>Неофициальный мессенджер VoidGram</p><p>От команды разработчиков VoidDev.</p>{release && <small>Последняя версия: {release.version} · {(release.ipaSize / 1048576).toFixed(1)} МБ</small>}</div>
+            <button className="light-button install-button" onClick={downloadRelease} disabled={busy || !release}><span className="button-symbol">↓</span>{busy ? "Загрузка…" : "Установить"}</button>
+          </div>
+          {downloadedVersion && <div className="downloaded-note"><span>{`IPA: ${downloadedVersion}`}</span><button className="outline-button compact" onClick={install} disabled={busy || deviceState !== "connected" || requiresSigning}>{requiresSigning ? "Требуется подпись" : "Установить на iPhone"}</button></div>}
+        </section>
+      </div>}
 
-        {page === "apple" && <div className="page-content narrow">
-          <section className="section-heading"><div><h2>Apple ID</h2><p>Управление учётной записью Apple</p></div></section>
-          <section className="card form-card"><div className="person-icon large">♙</div><h3>{appleEmail ? "Учётная запись" : "Войти в Apple ID"}</h3><p>Авторизация будет подключена через безопасный официальный механизм. Не вводите пароль на сторонних страницах.</p>
-            <label>Apple ID (электронная почта)</label><input value={appleEmail} onChange={e => setAppleEmail(e.target.value)} placeholder="name@example.com" />
-            <button className="button button-primary" onClick={() => setNotice("Для входа требуется реализовать официальный поток авторизации Apple.")}>Продолжить</button>
-            <small className="muted">Пароль и коды подтверждения приложение здесь не запрашивает.</small>
-          </section>
-        </div>}
+      {page === "apple" && <div className="page-content secondary-page"><h1>Apple ID</h1><section className="panel form-panel"><h2>Учётная запись Apple</h2><p>Для подписания приложений нужен поддерживаемый поток авторизации Apple. Ввод пароля Apple ID в сторонней форме не поддерживается.</p><label>Apple ID</label><input value={appleEmail} onChange={e => setAppleEmail(e.target.value)} placeholder="name@example.com"/><button className="light-button" onClick={() => report("Адрес Apple ID сохранён только локально. Безопасная авторизация Apple ещё не подключена.")}>Сохранить адрес</button><small>Не отправляйте пароль или коды подтверждения в приложение.</small></section></div>}
 
-        {page === "tools" && <div className="page-content">
-          <section className="section-heading"><div><h2>Инструменты</h2><p>Установка и обслуживание приложений</p></div></section>
-          <section className="card form-card"><h3>Установка IPA</h3><p>Выберите IPA-файл для установки на подключённое устройство.</p>
-            <div className="file-row"><input readOnly value={ipa} placeholder="Файл не выбран" /><button className="button button-secondary" onClick={chooseIpa}>Обзор</button></div>
-            <button className="button button-primary" disabled={!ipa || busy || deviceState !== "connected"} onClick={installIpa}>{busy ? "Установка…" : "Установить IPA"}</button>
-            {deviceState !== "connected" && <small className="muted">Сначала подключите устройство.</small>}
-          </section>
-        </div>}
+      {page === "tools" && <div className="page-content secondary-page"><h1>Инструменты</h1><section className="panel form-panel"><h2>Установка IPA</h2><p>Выберите IPA-файл с компьютера. Для установки требуется подключённый iPhone и действительная подпись приложения.</p><div className="file-picker"><input readOnly value={ipa} placeholder="IPA-файл не выбран"/><button className="outline-button" onClick={chooseIpa}>Обзор…</button></div><button className="light-button" onClick={install} disabled={!ipa || busy || deviceState !== "connected" || requiresSigning}>Установить IPA</button></section><section className="panel form-panel"><h2>Журнал операций</h2><div className="history">{history.length ? history.map((line,i)=><p key={i}>{line}</p>) : <p>Операции пока не выполнялись.</p>}</div></section></div>}
 
-        {page === "settings" && <div className="page-content narrow">
-          <section className="section-heading"><div><h2>Настройки</h2><p>Параметры приложения</p></div></section>
-          <section className="card setting-row"><div><h3>Язык интерфейса</h3><p>Русский</p></div><span className="muted">RU</span></section>
-          <section className="card setting-row"><div><h3>Версия приложения</h3><p>VoidGram Loader</p></div><span className="muted">0.4.0</span></section>
-        </div>}
-        <footer className="statusbar"><span className="ready-dot" />{notice}</footer>
-      </main>
-    </div>
-  );
+      {page === "settings" && <div className="page-content secondary-page"><h1>Настройки</h1><section className="panel setting-panel"><div><h3>Версия приложения</h3><p>VoidGram Loader 0.5.0</p></div><span>0.5.0</span></section><section className="panel setting-panel"><div><h3>Обновление VoidGram</h3><p>{release ? `Последняя версия: ${release.version}` : "Информация о релизе недоступна"}</p></div><button className="outline-button" onClick={checkRelease}>Проверить обновления</button></section><section className="panel setting-panel"><div><h3>Журнал операций</h3><p>Последние действия приложения</p></div><button className="outline-button" onClick={() => setPage("tools")}>Открыть журнал</button></section></div>}
+      <footer className="statusbar"><span className="green-dot"/>{notice}</footer>
+    </main>
+  </div>;
 }
