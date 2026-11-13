@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
-use std::{fs, path::{Path, PathBuf}, process::{Command, Output}};
+use std::{fs, fs::File, path::{Path, PathBuf}, process::{Command, Output}};
+use zip::ZipArchive;
 use tauri::Manager;
 
 const RELEASE_API: &str = "https://api.github.com/repos/neosay-dev/VoidGram/releases/latest";
@@ -213,6 +214,18 @@ fn install_ipa(app: tauri::AppHandle, path: String) -> Result<String, String> {
     if ipa_path.extension().and_then(|ext| ext.to_str())
         .map(|ext| !ext.eq_ignore_ascii_case("ipa")).unwrap_or(true) {
         return Err("Выберите файл с расширением .ipa.".to_owned());
+    }
+
+    // An IPA is a ZIP archive containing an app bundle and its Info.plist.
+    let file = File::open(ipa_path)
+        .map_err(|e| format!("Не удалось открыть IPA: {e}"))?;
+    let archive = ZipArchive::new(file)
+        .map_err(|_| "Файл не является корректным IPA/ZIP-архивом.".to_owned())?;
+    let has_app_manifest = archive.file_names().any(|name| {
+        name.starts_with("Payload/") && name.contains(".app/") && name.ends_with("Info.plist")
+    });
+    if !has_app_manifest {
+        return Err("В IPA не найден манифест Payload/*.app/Info.plist. Установка отменена.".to_owned());
     }
 
     let ids = run_device_tool(&app, "idevice_id", &["-l"])?;
