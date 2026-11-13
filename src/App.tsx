@@ -6,6 +6,14 @@ type Page = "device" | "apple" | "tools" | "settings";
 type ReleaseInfo = { version: string; title: string; pageUrl: string; publishedAt: string; ipaName: string; ipaSize: number; sha256: string | null; requiresSigning: boolean };
 type DownloadedIpa = { version: string; path: string; size: number; sha256: string; requiresSigning: boolean };
 
+function LogoMark({ className = "" }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 120 120" role="img" aria-label="VoidGram">
+    <path fill="currentColor" d="M55 4 55 62 26 113 Q24 117 19 117 H8 Q0 117 4 109 L49 14 Q52 7 55 4Z"/>
+    <path fill="currentColor" d="M65 4 65 62 94 113 Q96 117 101 117 H112 Q120 117 116 109 L71 14 Q68 7 65 4Z"/>
+    <path fill="#bdbdbd" d="M57 75 Q60 70 63 75 L84 111 Q87 117 80 117 H40 Q33 117 36 111Z"/>
+  </svg>;
+}
+
 export default function App() {
   const [page, setPage] = useState<Page>("device");
   const [device, setDevice] = useState("");
@@ -85,8 +93,8 @@ export default function App() {
 
   return <div className="app-shell">
     <aside className="sidebar">
-      <div className="brand-logo"><span className="void-mark">V</span><strong>VoidGram Loader</strong></div>
-      <div className="brand-hero"><div className="hero-mark">V</div><h2>VoidGram Loader</h2><p>v0.5.0</p></div>
+      <div className="brand-logo"><LogoMark className="void-mark" /><strong>VoidGram Loader</strong></div>
+      <div className="brand-hero"><LogoMark className="hero-mark" /><h2>VoidGram Loader</h2><p>v0.5.0</p></div>
       <nav>{nav.map(item => <button key={item.id} className={page === item.id ? "nav-item active" : "nav-item"} onClick={() => setPage(item.id)}><span className="nav-icon">{item.icon}</span>{item.label}</button>)}</nav>
       <div className="sidebar-status"><i className="green-dot"/><span>Готово к работе</span></div>
     </aside>
@@ -120,7 +128,7 @@ export default function App() {
         <section className="panel install-panel">
           <h2>Установка VoidGram</h2>
           <div className="inner-card install-row">
-            <div className="app-icon"><span className="hero-mark">V</span></div>
+            <div className="app-icon"><LogoMark className="hero-mark" /></div>
             <div className="row-copy"><h3>VoidGram</h3><p>Неофициальный мессенджер VoidGram</p><p>От команды разработчиков VoidDev.</p>{release && <small>Последняя версия: {release.version} · {(release.ipaSize / 1048576).toFixed(1)} МБ</small>}</div>
             <button className="light-button install-button" onClick={downloadRelease} disabled={busy || !release}><span className="button-symbol">↓</span>{busy ? "Загрузка…" : "Установить"}</button>
           </div>
