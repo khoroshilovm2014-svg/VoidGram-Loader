@@ -14,27 +14,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Prepare bundled libimobiledevice tools
+      # Install a matched Windows build of libimobiledevice + ideviceinstaller.
+      # The tools and their runtime DLLs are copied into the Tauri bundle.
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-ideviceinstaller
+            mingw-w64-ucrt-x86_64-libimobiledevice
+            mingw-w64-ucrt-x86_64-usbmuxd
+
+      - name: Bundle iPhone support tools
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $archive = Join-Path $env:RUNNER_TEMP "libimobile-suite.zip"
-          $extract = Join-Path $env:RUNNER_TEMP "libimobile-suite"
-          $url = "https://github.com/jrjr/libimobiledevice-windows/releases/download/v20261108-74585f8/libimobile-suite-latest_w64.zip"
-          Invoke-WebRequest -Uri $url -OutFile $archive
-          $actual = (Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          $expected = "61e3fd1cc5ded01695cc464f3de8a7bf706c340cad9f2e142c4aafa747bf1324"
-          if ($actual -ne $expected) { throw "libimobiledevice archive SHA-256 mismatch" }
-          Expand-Archive -Path $archive -DestinationPath $extract -Force
+          $bin = "C:\msys64\ucrt64\bin"
           foreach ($tool in @("idevice_id.exe", "ideviceinfo.exe", "ideviceinstaller.exe")) {
-            if (-not (Get-ChildItem -Path $extract -Recurse -Filter $tool | Select-Object -First 1)) {
-              throw "Bundled suite does not contain $tool; refusing to create an incomplete installer"
-            }
+            $path = Join-Path $bin $tool
+            if (-not (Test-Path $path)) { throw "Required tool missing from MSYS2: $tool" }
           }
           New-Item -ItemType Directory -Force -Path "src-tauri/resources/idevice" | Out-Null
-          Copy-Item -Path (Join-Path $extract "*") -Destination "src-tauri/resources/idevice" -Recurse -Force
-          Write-Host "Bundled iOS device tools:"
-          Get-ChildItem "src-tauri/resources/idevice" -Recurse -File | Where-Object { $_.Name -match "^idevice_(id|info|installer)\.exe$" } | Select-Object -ExpandProperty FullName
+          Copy-Item -Path (Join-Path $bin "*.exe") -Destination "src-tauri/resources/idevice" -Force
+          Copy-Item -Path (Join-Path $bin "*.dll") -Destination "src-tauri/resources/idevice" -Force
+          foreach ($tool in @("idevice_id.exe", "ideviceinfo.exe", "ideviceinstaller.exe")) {
+            if (-not (Test-Path "src-tauri/resources/idevice/$tool")) { throw "Failed to bundle $tool" }
+          }
+          Write-Host "Bundled device tools and runtime DLLs:"
+          Get-ChildItem "src-tauri/resources/idevice" -File | Measure-Object | Select-Object -ExpandProperty Count
 
       - uses: actions/setup-node@v4
         with:
