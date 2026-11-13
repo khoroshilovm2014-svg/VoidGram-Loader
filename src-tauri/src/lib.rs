@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
-use std::{fs, path::PathBuf, process::Command};
+use std::{fs, path::{Path, PathBuf}, process::{Command, Output}};
 use tauri::Manager;
 
 const RELEASE_API: &str = "https://api.github.com/repos/neosay-dev/VoidGram/releases/latest";
@@ -45,6 +45,51 @@ struct DownloadedIpa {
     size: u64,
     sha256: String,
     requires_signing: bool,
+}
+
+// Prefer the copy shipped inside the installer; PATH is only a development fallback.
+fn device_tool(app: &tauri::AppHandle, name: &str) -> Command {
+    let exe_name = format!("{name}.exe");
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let bundled = resource_dir.join("resources").join("idevice").join(&exe_name);
+        if bundled.is_file() {
+            let mut command = Command::new(&bundled);
+            if let Some(parent) = bundled.parent() {
+                command.current_dir(parent);
+            }
+            return command;
+        }
+        // Also support archives that preserve an extra top-level directory.
+        if let Ok(entries) = fs::read_dir(resource_dir.join("resources").join("idevice")) {
+            for entry in entries.flatten() {
+                let candidate = entry.path().join(&exe_name);
+                if candidate.is_file() {
+                    let mut command = Command::new(&candidate);
+                    if let Some(parent) = candidate.parent() {
+                        command.current_dir(parent);
+                    }
+                    return command;
+                }
+            }
+        }
+    }
+    Command::new(exe_name)
+}
+
+fn run_device_tool(app: &tauri::AppHandle, name: &str, args: &[&str]) -> Result<String, String> {
+    let output = device_tool(app, name).args(args).output()
+        .map_err(|e| format!("Не удалось запустить {name}: {e}. Проверьте USB-подключение и драйвер Apple Mobile Device Support."))?;
+    output_text(output, name)
+}
+
+fn output_text(output: Output, program: &str) -> Result<String, String> {
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+    if output.status.success() {
+        Ok(if stdout.is_empty() { stderr } else { stdout })
+    } else {
+        Err(if stderr.is_empty() { if stdout.is_empty() { format!("{program} завершился с кодом {}", output.status) } else { stdout } } else { stderr })
+    }
 }
 
 async fn fetch_latest_release() -> Result<GithubRelease, String> {
@@ -142,24 +187,50 @@ async fn download_latest_voidgram_ipa(app: tauri::AppHandle) -> Result<Downloade
 }
 
 #[tauri::command]
-fn detect_devices() -> Result<String, String> {
-    let output = Command::new("idevice_id").arg("-l").output()
-        .map_err(|e| format!("Не удалось запустить idevice_id: {e}"))?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).to_string());
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+fn detect_devices(app: tauri::AppHandle) -> Result<String, String> {
+    let ids = run_device_tool(&app, "idevice_id", &["-l"])?;
+    let udid = ids.lines().find(|line| !line.trim().is_empty()).map(str::trim);
+    let Some(udid) = udid else { return Ok(String::new()); };
+
+    let name = run_device_tool(&app, "ideviceinfo", &["-u", udid, "-k", "DeviceName"])
+        .unwrap_or_else(|_| "iPhone".to_owned());
+    let product = run_device_tool(&app, "ideviceinfo", &["-u", udid, "-k", "ProductType"])
+        .unwrap_or_default();
+    let ios = run_device_tool(&app, "ideviceinfo", &["-u", udid, "-k", "ProductVersion"])
+        .unwrap_or_default();
+
+    Ok(format!("{name}{}\niOS {}\nUDID: {udid}",
+        if product.is_empty() { String::new() } else { format!(" ({product})") },
+        if ios.is_empty() { "не определена" } else { &ios }))
 }
 
 #[tauri::command]
-fn install_ipa(path: String) -> Result<String, String> {
-    let output = Command::new("ideviceinstaller").args(["-i", &path]).output()
-        .map_err(|e| format!("Не удалось запустить ideviceinstaller: {e}"))?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
+fn install_ipa(app: tauri::AppHandle, path: String) -> Result<String, String> {
+    let ipa_path = Path::new(&path);
+    if !ipa_path.is_file() {
+        return Err("Выбранный IPA-файл не найден.".to_owned());
     }
+    if ipa_path.extension().and_then(|ext| ext.to_str())
+        .map(|ext| !ext.eq_ignore_ascii_case("ipa")).unwrap_or(true) {
+        return Err("Выберите файл с расширением .ipa.".to_owned());
+    }
+
+    let ids = run_device_tool(&app, "idevice_id", &["-l"])?;
+    let udid = ids.lines().find(|line| !line.trim().is_empty()).map(str::trim)
+        .ok_or_else(|| "iPhone не найден. Сначала подключите устройство по USB.".to_owned())?;
+
+    let version = run_device_tool(&app, "ideviceinstaller", &["--version"])
+        .unwrap_or_default();
+    let mut command = device_tool(&app, "ideviceinstaller");
+    command.arg("-u").arg(udid);
+    if version.contains("1.2") || version.contains("2.") {
+        command.arg("install").arg(&path);
+    } else {
+        command.arg("-i").arg(&path);
+    }
+    let output = command.output()
+        .map_err(|e| format!("Не удалось запустить ideviceinstaller: {e}"))?;
+    output_text(output, "ideviceinstaller")
 }
 
 pub fn run() {
