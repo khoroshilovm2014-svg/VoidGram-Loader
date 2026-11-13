@@ -26,15 +26,15 @@ jobs:
           $expected = "61e3fd1cc5ded01695cc464f3de8a7bf706c340cad9f2e142c4aafa747bf1324"
           if ($actual -ne $expected) { throw "libimobiledevice archive SHA-256 mismatch" }
           Expand-Archive -Path $archive -DestinationPath $extract -Force
-          $idTool = Get-ChildItem -Path $extract -Recurse -Filter "idevice_id.exe" | Select-Object -First 1
-          $installer = Get-ChildItem -Path $extract -Recurse -Filter "ideviceinstaller.exe" | Select-Object -First 1
-          if (-not $idTool) { throw "Bundled suite does not contain idevice_id.exe" }
-          if (-not $installer) { throw "Bundled suite does not contain ideviceinstaller.exe; cannot ship a working IPA installer" }
-          $toolDir = $idTool.Directory.FullName
+          foreach ($tool in @("idevice_id.exe", "ideviceinfo.exe", "ideviceinstaller.exe")) {
+            if (-not (Get-ChildItem -Path $extract -Recurse -Filter $tool | Select-Object -First 1)) {
+              throw "Bundled suite does not contain $tool; refusing to create an incomplete installer"
+            }
+          }
           New-Item -ItemType Directory -Force -Path "src-tauri/resources/idevice" | Out-Null
-          Copy-Item -Path (Join-Path $toolDir "*") -Destination "src-tauri/resources/idevice" -Recurse -Force
-          Write-Host "Bundled tools:"
-          Get-ChildItem "src-tauri/resources/idevice" -File | Select-Object -ExpandProperty Name
+          Copy-Item -Path (Join-Path $extract "*") -Destination "src-tauri/resources/idevice" -Recurse -Force
+          Write-Host "Bundled iOS device tools:"
+          Get-ChildItem "src-tauri/resources/idevice" -Recurse -File | Where-Object { $_.Name -match "^idevice_(id|info|installer)\.exe$" } | Select-Object -ExpandProperty FullName
 
       - uses: actions/setup-node@v4
         with:
