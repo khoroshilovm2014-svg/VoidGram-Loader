@@ -10,19 +10,25 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{
-      "title": "VoidGram Loader",
-      "width": 1536,
-      "height": 1024,
-      "minWidth": 1100,
-      "minHeight": 760,
-      "center": true,
-      "resizable": true
-    }]
+    "windows": [
+      {
+        "title": "VoidGram Loader",
+        "width": 1536,
+        "height": 1024,
+        "minWidth": 1100,
+        "minHeight": 760,
+        "center": true,
+        "resizable": true
+      }
+    ]
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "resources": ["resources/idevice/**"]
+    "targets": [
+      "nsis"
+    ],
+    "resources": [
+      "resources/idevice/**/*"
+    ]
   }
 }
