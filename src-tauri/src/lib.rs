@@ -187,6 +187,26 @@ async fn download_latest_voidgram_ipa(app: tauri::AppHandle) -> Result<Downloade
     })
 }
 
+fn friendly_device_model(product: &str, device_name: &str) -> String {
+    let model = match product {
+        "iPhone13,2" => "iPhone 12", "iPhone13,1" => "iPhone 12 mini",
+        "iPhone13,3" => "iPhone 12 Pro", "iPhone13,4" => "iPhone 12 Pro Max",
+        "iPhone14,5" => "iPhone 13", "iPhone14,4" => "iPhone 13 mini",
+        "iPhone14,2" => "iPhone 13 Pro", "iPhone14,3" => "iPhone 13 Pro Max",
+        "iPhone14,7" => "iPhone 14", "iPhone14,8" => "iPhone 14 Plus",
+        "iPhone15,2" => "iPhone 14 Pro", "iPhone15,3" => "iPhone 14 Pro Max",
+        "iPhone15,4" => "iPhone 15", "iPhone15,5" => "iPhone 15 Plus",
+        "iPhone16,1" => "iPhone 15 Pro", "iPhone16,2" => "iPhone 15 Pro Max",
+        "iPhone17,3" => "iPhone 16", "iPhone17,4" => "iPhone 16 Plus",
+        "iPhone17,1" => "iPhone 16 Pro", "iPhone17,2" => "iPhone 16 Pro Max",
+        "iPhone18,1" => "iPhone 17 Pro", "iPhone18,2" => "iPhone 17 Pro Max",
+        _ => "",
+    };
+    if !model.is_empty() { model.to_owned() }
+    else if !device_name.trim().is_empty() { device_name.trim().to_owned() }
+    else { "Устройство Apple".to_owned() }
+}
+
 #[tauri::command]
 fn detect_devices(app: tauri::AppHandle) -> Result<String, String> {
     let ids = run_device_tool(&app, "idevice_id", &["-l"])?;
@@ -197,11 +217,11 @@ fn detect_devices(app: tauri::AppHandle) -> Result<String, String> {
         .unwrap_or_else(|_| "iPhone".to_owned());
     let product = run_device_tool(&app, "ideviceinfo", &["-u", udid, "-k", "ProductType"])
         .unwrap_or_default();
+    let model = friendly_device_model(product.trim(), name.trim());
     let ios = run_device_tool(&app, "ideviceinfo", &["-u", udid, "-k", "ProductVersion"])
         .unwrap_or_default();
 
-    Ok(format!("{name}{}\niOS {}\nUDID: {udid}",
-        if product.is_empty() { String::new() } else { format!(" ({product})") },
+    Ok(format!("{model}\niOS {}\nUDID: {udid}",
         if ios.is_empty() { "не определена" } else { &ios }))
 }
 
