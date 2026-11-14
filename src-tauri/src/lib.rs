@@ -188,23 +188,75 @@ async fn download_latest_voidgram_ipa(app: tauri::AppHandle) -> Result<Downloade
 }
 
 fn friendly_device_model(product: &str, device_name: &str) -> String {
+    // ProductType is the hardware identifier returned by Apple's lockdown service.
+    // Keep this table explicit: unknown identifiers must never be guessed.
     let model = match product {
-        "iPhone13,2" => "iPhone 12", "iPhone13,1" => "iPhone 12 mini",
-        "iPhone13,3" => "iPhone 12 Pro", "iPhone13,4" => "iPhone 12 Pro Max",
-        "iPhone14,5" => "iPhone 13", "iPhone14,4" => "iPhone 13 mini",
-        "iPhone14,2" => "iPhone 13 Pro", "iPhone14,3" => "iPhone 13 Pro Max",
-        "iPhone14,7" => "iPhone 14", "iPhone14,8" => "iPhone 14 Plus",
-        "iPhone15,2" => "iPhone 14 Pro", "iPhone15,3" => "iPhone 14 Pro Max",
-        "iPhone15,4" => "iPhone 15", "iPhone15,5" => "iPhone 15 Plus",
-        "iPhone16,1" => "iPhone 15 Pro", "iPhone16,2" => "iPhone 15 Pro Max",
-        "iPhone17,3" => "iPhone 16", "iPhone17,4" => "iPhone 16 Plus",
-        "iPhone17,1" => "iPhone 16 Pro", "iPhone17,2" => "iPhone 16 Pro Max",
-        "iPhone18,1" => "iPhone 17 Pro", "iPhone18,2" => "iPhone 17 Pro Max",
+        "iPhone1,1" => "iPhone",
+        "iPhone1,2" => "iPhone 3G",
+        "iPhone2,1" => "iPhone 3GS",
+        "iPhone3,1" | "iPhone3,2" | "iPhone3,3" => "iPhone 4",
+        "iPhone4,1" => "iPhone 4s",
+        "iPhone5,1" | "iPhone5,2" => "iPhone 5",
+        "iPhone5,3" | "iPhone5,4" => "iPhone 5c",
+        "iPhone6,1" | "iPhone6,2" => "iPhone 5s",
+        "iPhone7,2" => "iPhone 6",
+        "iPhone7,1" => "iPhone 6 Plus",
+        "iPhone8,1" => "iPhone 6s",
+        "iPhone8,2" => "iPhone 6s Plus",
+        "iPhone8,4" => "iPhone SE (1-го поколения)",
+        "iPhone9,1" | "iPhone9,3" => "iPhone 7",
+        "iPhone9,2" | "iPhone9,4" => "iPhone 7 Plus",
+        "iPhone10,1" | "iPhone10,4" => "iPhone 8",
+        "iPhone10,2" | "iPhone10,5" => "iPhone 8 Plus",
+        "iPhone10,3" | "iPhone10,6" => "iPhone X",
+        "iPhone11,2" => "iPhone XS",
+        "iPhone11,4" | "iPhone11,6" => "iPhone XS Max",
+        "iPhone11,8" => "iPhone XR",
+        "iPhone12,1" => "iPhone 11",
+        "iPhone12,3" => "iPhone 11 Pro",
+        "iPhone12,5" => "iPhone 11 Pro Max",
+        "iPhone12,8" => "iPhone SE (2-го поколения)",
+        "iPhone13,1" => "iPhone 12 mini",
+        "iPhone13,2" => "iPhone 12",
+        "iPhone13,3" => "iPhone 12 Pro",
+        "iPhone13,4" => "iPhone 12 Pro Max",
+        "iPhone14,2" => "iPhone 13 Pro",
+        "iPhone14,3" => "iPhone 13 Pro Max",
+        "iPhone14,4" => "iPhone 13 mini",
+        "iPhone14,5" => "iPhone 13",
+        "iPhone14,6" => "iPhone SE (3-го поколения)",
+        "iPhone14,7" => "iPhone 14",
+        "iPhone14,8" => "iPhone 14 Plus",
+        "iPhone15,2" => "iPhone 14 Pro",
+        "iPhone15,3" => "iPhone 14 Pro Max",
+        "iPhone15,4" => "iPhone 15",
+        "iPhone15,5" => "iPhone 15 Plus",
+        "iPhone16,1" => "iPhone 15 Pro",
+        "iPhone16,2" => "iPhone 15 Pro Max",
+        "iPhone17,1" => "iPhone 16 Pro",
+        "iPhone17,2" => "iPhone 16 Pro Max",
+        "iPhone17,3" => "iPhone 16",
+        "iPhone17,4" => "iPhone 16 Plus",
+        "iPhone17,5" => "iPhone 16e",
+        "iPhone18,1" => "iPhone 17 Pro",
+        "iPhone18,2" => "iPhone 17 Pro Max",
+        "iPhone18,3" => "iPhone 17",
+        "iPhone18,4" => "iPhone Air",
+        "iPhone18,5" => "iPhone 17e",
+        "iPhone19,2" => "iPhone 18 Pro",
+        "iPhone19,3" | "iPhone19,7" => "iPhone 18 Pro Max",
+        "iPhone19,4" => "iPhone Duo",
         _ => "",
     };
-    if !model.is_empty() { model.to_owned() }
-    else if !device_name.trim().is_empty() { device_name.trim().to_owned() }
-    else { "Устройство Apple".to_owned() }
+    if !model.is_empty() {
+        model.to_owned()
+    } else if !device_name.trim().is_empty()
+        && !device_name.trim().eq_ignore_ascii_case("iphone")
+        && !device_name.trim().eq_ignore_ascii_case("apple device") {
+        device_name.trim().to_owned()
+    } else {
+        "Модель iPhone не распознана".to_owned()
+    }
 }
 
 #[tauri::command]
