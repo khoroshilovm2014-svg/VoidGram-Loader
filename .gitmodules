@@ -1,0 +1,4 @@
+[submodule "NovaStoreCore"]
+	path = NovaStoreCore
+	url = https://github.com/SideStore/SideStore.git
+	branch = develop

@@ -1,0 +1,33 @@
+name: NovaStore iOS source check
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - novastore-ios
+    paths:
+      - ".gitmodules"
+      - "README.md"
+      - ".github/workflows/ios-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-ios-project:
+    runs-on: macos-15
+    steps:
+      - name: Checkout NovaStore
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+
+      - name: Verify upstream iOS project
+        run: |
+          test -d NovaStoreCore/AltStore.xcodeproj
+          xcodebuild -list -project NovaStoreCore/AltStore.xcodeproj

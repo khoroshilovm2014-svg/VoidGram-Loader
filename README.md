@@ -1,53 +1,33 @@
-# VoidGram Loader
+# NovaStore
 
-Windows desktop application for selecting IPA files, detecting connected iOS devices, and requesting installation through the local `libimobiledevice` command-line tools.
+NovaStore is an iOS app-store project based on the public SideStore codebase.
 
-## Current status (0.4.1)
+## Current status
 
-This is an early development build, not a complete Apple ID signing application.
+This branch starts the iOS migration. The previous desktop VoidGram Loader code remains untouched on `main`, and a snapshot is preserved in `backup/pre-novastore-2026-11-20`.
 
-Implemented:
-- Tauri 2 desktop shell for Windows (NSIS installer target).
-- Russian-language interface.
-- IPA file picker.
-- Device detection through `idevice_id`.
-- IPA installation request through `ideviceinstaller`.
+The iOS engine is tracked as the `NovaStoreCore` Git submodule, pinned by Git to the upstream SideStore repository's current `develop` commit. This avoids copying or silently relicensing upstream code.
 
-Not implemented:
-- Apple ID sign-in.
-- Apple Developer free-account certificate creation or signing.
-- Automatic renewal/re-signing after seven days.
-- Bundling and automatic installation of Apple device drivers or libimobiledevice tools.
+## License
 
-The computer must have the required Apple device driver and compatible `idevice_id` / `ideviceinstaller` executables available on PATH. A successful desktop build does not prove that device detection, installation, or signing works.
+The SideStore codebase is licensed under **GNU AGPL-3.0**. Any distributed derivative that incorporates that code must preserve the applicable license and source-availability obligations. NovaStore branding and original assets do not change the license of upstream components.
 
-## Build on GitHub
+## Checkout
 
-A push to `main` starts the **Build Windows installer** workflow. It uses a Windows GitHub Actions runner, installs Node.js 20 and stable Rust, builds the Tauri application, and uploads the NSIS setup executable as the `VoidGram-Loader-setup` artifact.
-
-Open [GitHub Actions](https://github.com/khoroshilovm2014-svg/VoidGram-Loader/actions), select the latest run, and download its artifact only after the run succeeds.
-
-## Local development
-
-Requirements:
-- Node.js 20+
-- Rust stable with the MSVC toolchain
-- Microsoft C++ Build Tools (Desktop development with C++)
-- Microsoft Edge WebView2
-
-Commands:
-
-```powershell
-npm install
-npm run tauri:dev
+```bash
+git clone --recurse-submodules https://github.com/khoroshilovm2014-svg/VoidGram-Loader.git
+cd VoidGram-Loader
+git checkout novastore-ios
+git submodule update --init --recursive
 ```
 
-Create a Windows installer:
+## Build status
 
-```powershell
-npm run tauri:build
-```
+The first CI workflow checks out the iOS source and lists the available Xcode schemes on a macOS runner. It does not yet produce a signed IPA. A distributable IPA requires a configured Apple signing identity, provisioning profile, bundle identifier, and the required app-specific configuration.
 
-## Safety and signing
+## Roadmap
 
-Only install IPA files that you are authorized to use. Do not send Apple ID passwords, verification codes, session cookies, or developer credentials to anyone or put them in source code or GitHub Actions logs. Apple ID signing must be designed and tested separately before this project can claim to support it.
+- [ ] Establish reproducible iOS source checkout and Xcode scheme discovery
+- [ ] Apply NovaStore name, bundle identifiers, app icon, and interface branding
+- [ ] Validate signing and refresh/install flows on a real device
+- [ ] Add a signed IPA workflow after signing configuration is available
