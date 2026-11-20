@@ -9,6 +9,8 @@ on:
       - ".gitmodules"
       - "README.md"
       - ".github/workflows/ios-check.yml"
+      - "scripts/**"
+      - "branding/**"
 
 permissions:
   contents: read
@@ -26,6 +28,21 @@ jobs:
         run: |
           sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           xcodebuild -version
+
+      - name: Apply NovaStore branding
+        run: |
+          python3 scripts/apply-novastore-branding.py
+          mkdir -p NovaStoreCore/AltStore/Resources/Icons.xcassets/AppIcon.appiconset
+          swift scripts/generate-novastore-icon.swift NovaStoreCore/AltStore/Resources/Icons.xcassets/AppIcon.appiconset/1024.png
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("NovaStoreCore/AltStore/Resources/Icons.xcassets/AppIcon.appiconset/Contents.json")
+          data = json.loads(p.read_text())
+          data["images"] = [{"filename":"1024.png","idiom":"universal","platform":"ios","size":"1024x1024"}]
+          p.write_text(json.dumps(data, indent=2) + "\\n")
+          PY
+          /usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" NovaStoreCore/AltStore/Info.plist | grep -Fx NovaStore
 
       - name: Verify upstream iOS project
         run: |
