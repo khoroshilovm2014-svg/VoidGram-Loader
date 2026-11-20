@@ -1,4 +1,4 @@
-name: NovaStore iOS source check
+name: NovaStore iOS build check
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  inspect-ios-project:
+  build-ios-simulator:
     runs-on: macos-15
     steps:
       - name: Checkout NovaStore
@@ -44,7 +44,26 @@ jobs:
           PY
           /usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" NovaStoreCore/AltStore/Info.plist | grep -Fx NovaStore
 
-      - name: Verify upstream iOS project
+      - name: Verify Xcode project and scheme
         run: |
           test -d NovaStoreCore/AltStore.xcodeproj
           xcodebuild -list -project NovaStoreCore/AltStore.xcodeproj
+
+      - name: Compile for iOS Simulator
+        run: |
+          xcodebuild \
+            -project NovaStoreCore/AltStore.xcodeproj \
+            -scheme SideStore \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Upload simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaStore-iOS-Simulator
+          path: build/DerivedData/Build/Products/Debug-iphonesimulator/SideStore.app
+          if-no-files-found: error
+          retention-days: 7
