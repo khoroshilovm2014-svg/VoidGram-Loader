@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   build-ios:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - name: Checkout NovaStore
         uses: actions/checkout@v4
@@ -52,7 +52,6 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/SimulatorDerivedData \
             CODE_SIGNING_ALLOWED=NO \
-            OTHER_SWIFT_FLAGS='$(inherited) -enable-experimental-feature IsolatedDeinit' \
             MAIN_BUNDLE_IDENTIFIER=com.novastore.app \
             APP_GROUP_IDENTIFIER=com.novastore.app \
             build
@@ -68,7 +67,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY= \
-            OTHER_SWIFT_FLAGS='$(inherited) -enable-experimental-feature IsolatedDeinit' \
             MAIN_BUNDLE_IDENTIFIER=com.novastore.app \
             APP_GROUP_IDENTIFIER=com.novastore.app \
             archive
