@@ -55,7 +55,6 @@ jobs:
             OTHER_SWIFT_FLAGS='$(inherited) -enable-experimental-feature IsolatedDeinit' \
             MAIN_BUNDLE_IDENTIFIER=com.novastore.app \
             APP_GROUP_IDENTIFIER=com.novastore.app \
-            PRODUCT_NAME=NovaStore \
             build
 
       - name: Archive for physical iPhone
@@ -72,7 +71,6 @@ jobs:
             OTHER_SWIFT_FLAGS='$(inherited) -enable-experimental-feature IsolatedDeinit' \
             MAIN_BUNDLE_IDENTIFIER=com.novastore.app \
             APP_GROUP_IDENTIFIER=com.novastore.app \
-            PRODUCT_NAME=NovaStore \
             archive
 
       - name: Package unsigned IPA
