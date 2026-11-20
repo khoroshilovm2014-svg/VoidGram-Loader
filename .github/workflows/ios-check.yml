@@ -52,6 +52,8 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/SimulatorDerivedData \
             CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
             MAIN_BUNDLE_IDENTIFIER=com.novastore.app \
             APP_GROUP_IDENTIFIER=com.novastore.app \
             build
