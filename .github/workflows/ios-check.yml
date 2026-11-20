@@ -1,4 +1,4 @@
-name: NovaStore iOS build check
+name: NovaStore iOS build
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  build-ios-simulator:
+  build-ios:
     runs-on: macos-15
     steps:
       - name: Checkout NovaStore
@@ -32,17 +32,11 @@ jobs:
       - name: Apply NovaStore branding
         run: |
           python3 scripts/apply-novastore-branding.py
-          mkdir -p NovaStoreCore/AltStore/Resources/Icons.xcassets/AppIcon.appiconset
-          swift scripts/generate-novastore-icon.swift NovaStoreCore/AltStore/Resources/Icons.xcassets/AppIcon.appiconset/1024.png
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          p = Path("NovaStoreCore/AltStore/Resources/Icons.xcassets/AppIcon.appiconset/Contents.json")
-          data = json.loads(p.read_text())
-          data["images"] = [{"filename":"1024.png","idiom":"universal","platform":"ios","size":"1024x1024"}]
-          p.write_text(json.dumps(data, indent=2) + chr(10))
-          PY
+          swift scripts/generate-novastore-icon.swift NovaStoreCore/AltStore/Resources/Assets.xcassets/SideStore.imageset/1024.png
+          mkdir -p NovaStoreCore/AltWidget/Assets.xcassets/SideStore.imageset
+          cp NovaStoreCore/AltStore/Resources/Assets.xcassets/SideStore.imageset/1024.png NovaStoreCore/AltWidget/Assets.xcassets/SideStore.imageset/1024.png
           /usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" NovaStoreCore/AltStore/Info.plist | grep -Fx NovaStore
+          grep -F 'BASE_BUNDLE_ID = com.novastore.app' NovaStoreCore/Build.xcconfig
 
       - name: Verify Xcode project and scheme
         run: |
@@ -56,15 +50,57 @@ jobs:
             -scheme SideStore \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build/DerivedData \
+            -derivedDataPath build/SimulatorDerivedData \
             CODE_SIGNING_ALLOWED=NO \
             OTHER_SWIFT_FLAGS='$(inherited) -enable-experimental-feature IsolatedDeinit' \
+            MAIN_BUNDLE_IDENTIFIER=com.novastore.app \
+            APP_GROUP_IDENTIFIER=com.novastore.app \
+            PRODUCT_NAME=NovaStore \
             build
+
+      - name: Archive for physical iPhone
+        run: |
+          xcodebuild \
+            -project NovaStoreCore/AltStore.xcodeproj \
+            -scheme SideStore \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/NovaStore.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY= \
+            OTHER_SWIFT_FLAGS='$(inherited) -enable-experimental-feature IsolatedDeinit' \
+            MAIN_BUNDLE_IDENTIFIER=com.novastore.app \
+            APP_GROUP_IDENTIFIER=com.novastore.app \
+            PRODUCT_NAME=NovaStore \
+            archive
+
+      - name: Package unsigned IPA
+        run: |
+          APP_PATH="$(find build/NovaStore.xcarchive/Products/Applications -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$APP_PATH"
+          DISPLAY_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" "$APP_PATH/Info.plist")
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Info.plist")
+          test "$DISPLAY_NAME" = "NovaStore"
+          test "$BUNDLE_ID" = "com.novastore.app"
+          mkdir -p build/ipa/Payload
+          cp -R "$APP_PATH" build/ipa/Payload/
+          (cd build/ipa && /usr/bin/zip -qry ../../NovaStore-unsigned.ipa Payload)
+          test -s NovaStore-unsigned.ipa
+          echo "Created unsigned IPA: $BUNDLE_ID"
+
+      - name: Upload iPhone IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaStore-unsigned-IPA
+          path: NovaStore-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload simulator app
         uses: actions/upload-artifact@v4
         with:
           name: NovaStore-iOS-Simulator
-          path: build/DerivedData/Build/Products/Debug-iphonesimulator/SideStore.app
+          path: build/SimulatorDerivedData/Build/Products/Debug-iphonesimulator/*.app
           if-no-files-found: error
           retention-days: 7
